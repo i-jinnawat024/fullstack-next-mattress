@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, X, Download } from "lucide-react";
+import { FileSpreadsheet, X, Download, Check, FileUp } from "lucide-react";
 
 const TEMPLATE_HEADERS = [
   "ชื่อ",
@@ -11,11 +11,6 @@ const TEMPLATE_HEADERS = [
   "ราคา 3.5 ฟุต",
   "ราคา 5 ฟุต",
   "ราคา 6 ฟุต",
-  "ส่วนลด%",
-  "วันหมดโปร",
-  "ของแถม",
-  "ข้อความเครดิต",
-  "รูป",
 ];
 const TEMPLATE_SAMPLE_ROW = [
   "ตัวอย่างที่นอน A",
@@ -23,12 +18,18 @@ const TEMPLATE_SAMPLE_ROW = [
   "10000",
   "15000",
   "18000",
-  "10",
-  "2025-12-31",
-  "หมอนข้าง",
-  "ผ่อน 0% 3 เดือน",
-  "",
 ];
+
+const PREVIEW_LABELS = ["ชื่อ", "แบรนด์", "ราคา 3.5 ฟุต", "ราคา 5 ฟุต", "ราคา 6 ฟุต"];
+
+/** แสดงค่าตามลำดับคอลัมน์ (รองรับกรณีหัวคอลัมน์เป็น encoding ผิดแบบ mojibake) */
+function getCellByIndex(row: Record<string, unknown>, index: number): string {
+  const values = Object.values(row);
+  const v = values[index];
+  if (v === undefined || v === null) return "—";
+  const s = String(v).trim();
+  return s === "" ? "—" : s;
+}
 
 function downloadTemplateCsv() {
   const header = TEMPLATE_HEADERS.join(",");
@@ -57,6 +58,30 @@ export function ProductUploadButton() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
+
+  const parseFile = useCallback(async (file: File): Promise<Record<string, unknown>[]> => {
+    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+    if (ext !== "csv" && ext !== "xlsx" && ext !== "xls") {
+      throw new Error("รองรับเฉพาะไฟล์ .xlsx หรือ .csv");
+    }
+    let wb: XLSX.WorkBook;
+    if (ext === "csv") {
+      const text = await file.text();
+      wb = XLSX.read(text, { type: "string", raw: false });
+    } else {
+      const buf = await file.arrayBuffer();
+      wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+    }
+    const firstSheet = wb.Sheets[wb.SheetNames[0]];
+    if (!firstSheet) throw new Error("ไม่มีชีตในไฟล์");
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
+      defval: "",
+      raw: false,
+    });
+    if (rows.length === 0) throw new Error("ไม่พบแถวข้อมูลในไฟล์ (แถวแรกเป็นหัวคอลัมน์)");
+    return rows;
+  }, []);
 
   const handleFile = useCallback(
     async (file: File | null) => {
@@ -64,53 +89,8 @@ export function ProductUploadButton() {
       setMessage(null);
       setUploading(true);
       try {
-        const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-        let rows: Record<string, unknown>[] = [];
-
-        if (ext === "csv" || ext === "xlsx" || ext === "xls") {
-          const buf = await file.arrayBuffer();
-          const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
-          const firstSheet = wb.Sheets[wb.SheetNames[0]];
-          if (!firstSheet) throw new Error("ไม่มีชีตในไฟล์");
-          rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
-            defval: "",
-            raw: false,
-          });
-        } else {
-          throw new Error("รองรับเฉพาะไฟล์ .xlsx หรือ .csv");
-        }
-
-        if (rows.length === 0) {
-          setMessage({ type: "error", text: "ไม่พบแถวข้อมูลในไฟล์ (แถวแรกเป็นหัวคอลัมน์)" });
-          setUploading(false);
-          if (inputRef.current) inputRef.current.value = "";
-          return;
-        }
-
-        const res = await fetch("/api/products/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rows }),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          setMessage({ type: "error", text: data?.error ?? "อัปโหลดไม่สำเร็จ" });
-          setUploading(false);
-          if (inputRef.current) inputRef.current.value = "";
-          return;
-        }
-
-        const { created = 0, skipped = 0, errors = [] } = data;
-        const errText =
-          errors.length > 0
-            ? ` (${errors.slice(0, 3).join("; ")}${errors.length > 3 ? "..." : ""})`
-            : "";
-        setMessage({
-          type: "success",
-          text: `เพิ่มสินค้า ${created} รายการ${skipped ? `, ข้าม ${skipped} แถว` : ""}${errText}`,
-        });
-        router.refresh();
+        const rows = await parseFile(file);
+        setPreviewRows(rows);
         if (inputRef.current) inputRef.current.value = "";
       } catch (err) {
         setMessage({
@@ -122,8 +102,52 @@ export function ProductUploadButton() {
         setUploading(false);
       }
     },
-    [router]
+    [parseFile]
   );
+
+  const handleConfirmUpload = useCallback(async () => {
+    if (!previewRows || previewRows.length === 0) return;
+    setMessage(null);
+    setUploading(true);
+    try {
+      const res = await fetch("/api/products/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: previewRows }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage({ type: "error", text: data?.error ?? "อัปโหลดไม่สำเร็จ" });
+        return;
+      }
+
+      const { created = 0, skipped = 0, errors = [] } = data;
+      const errText =
+        errors.length > 0
+          ? ` (${errors.slice(0, 3).join("; ")}${errors.length > 3 ? "..." : ""})`
+          : "";
+      setMessage({
+        type: "success",
+        text: `เพิ่มสินค้า ${created} รายการ${skipped ? `, ข้าม ${skipped} แถว` : ""}${errText}`,
+      });
+      setPreviewRows(null);
+      router.refresh();
+    } catch (err) {
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "เกิดข้อผิดพลาด",
+      });
+    } finally {
+      setUploading(false);
+    }
+  }, [previewRows, router]);
+
+  const handleBackToDropzone = useCallback(() => {
+    setPreviewRows(null);
+    setMessage(null);
+    if (inputRef.current) inputRef.current.value = "";
+  }, []);
 
   const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,9 +175,10 @@ export function ProductUploadButton() {
         onClick={() => {
           setOpen(true);
           setMessage(null);
+          setPreviewRows(null);
         }}
         disabled={uploading}
-        className="inline-flex min-h-[var(--touch-min)] items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 font-medium text-[var(--color-text)] transition-opacity hover:opacity-90 focus:outline-none disabled:opacity-60"
+        className="inline-flex min-h-[var(--touch-min)] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 font-medium text-[var(--color-text)] transition-opacity hover:opacity-90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
         data-testid="products-upload-button"
       >
         <FileSpreadsheet className="h-5 w-5 text-[var(--color-text-muted)]" />
@@ -169,7 +194,12 @@ export function ProductUploadButton() {
         >
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => !uploading && setOpen(false)}
+            onClick={() => {
+              if (!uploading) {
+                setOpen(false);
+                setPreviewRows(null);
+              }
+            }}
             aria-hidden
           />
           <div
@@ -185,7 +215,12 @@ export function ProductUploadButton() {
               </h2>
               <button
                 type="button"
-                onClick={() => !uploading && setOpen(false)}
+                onClick={() => {
+                  if (!uploading) {
+                    setOpen(false);
+                    setPreviewRows(null);
+                  }
+                }}
                 className="rounded-lg p-1.5 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-text)] focus:outline-none disabled:opacity-50"
                 aria-label="ปิด"
                 disabled={uploading}
@@ -204,55 +239,130 @@ export function ProductUploadButton() {
               data-testid="products-upload-input"
             />
 
-            <div
-              onClick={() => !uploading && inputRef.current?.click()}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              className={`flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 transition-colors ${
-                dragOver
-                  ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
-                  : "border-[var(--color-border)] bg-[var(--color-surface-secondary)]/50 hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-surface-secondary)]"
-              } ${uploading ? "pointer-events-none opacity-70" : ""}`}
-              data-testid="products-upload-dropzone"
-            >
-              <FileSpreadsheet className="h-10 w-10 text-[var(--color-text-muted)]" />
-              <p className="text-center text-sm font-medium text-[var(--color-text)]">
-                {uploading ? "กำลังอัปโหลด..." : "ลากไฟล์มาวาง หรือคลิกเพื่อเลือกไฟล์"}
-              </p>
-              <p className="text-center text-xs text-[var(--color-text-muted)]">
-                รองรับ .xlsx, .xls, .csv
-              </p>
-            </div>
+            {previewRows != null && previewRows.length > 0 ? (
+              <>
+                <p className="mb-3 text-sm font-medium text-[var(--color-text-muted)]">
+                  ตัวอย่างข้อมูลที่จะเพิ่ม ({previewRows.length} แถว) — ตรวจสอบแล้วกดยืนยัน
+                </p>
+                <div
+                  className="max-h-[240px] overflow-auto rounded-xl border border-[var(--color-border)]"
+                  data-testid="products-upload-preview"
+                >
+                  <table className="w-full min-w-[400px] text-left text-sm">
+                    <thead className="sticky top-0 bg-[var(--color-surface-secondary)]">
+                      <tr>
+                        {PREVIEW_LABELS.map((label, idx) => (
+                          <th
+                            key={idx}
+                            className="border-b border-[var(--color-border)] px-3 py-2 font-medium text-[var(--color-text-muted)]"
+                          >
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row, i) => (
+                        <tr key={i} className="border-b border-[var(--color-border)] last:border-0">
+                          {PREVIEW_LABELS.map((_, colIdx) => {
+                            const val = getCellByIndex(row as Record<string, unknown>, colIdx);
+                            return (
+                              <td
+                                key={colIdx}
+                                className="max-w-[120px] truncate px-3 py-2 text-[var(--color-text)]"
+                                title={val}
+                              >
+                                {val}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleConfirmUpload}
+                    disabled={uploading}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--color-primary)] bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-[var(--color-primary-foreground)] hover:opacity-90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    data-testid="products-upload-confirm"
+                  >
+                    {uploading ? (
+                      "กำลังเพิ่ม..."
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        ยืนยันเพิ่ม
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBackToDropzone}
+                    disabled={uploading}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-secondary)] focus:outline-none disabled:opacity-60"
+                    data-testid="products-upload-back"
+                  >
+                    <FileUp className="h-4 w-4" />
+                    เลือกไฟล์ใหม่
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  onClick={() => !uploading && inputRef.current?.click()}
+                  onDrop={onDrop}
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                  className={`flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 transition-colors ${
+                    dragOver
+                      ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
+                      : "border-[var(--color-border)] bg-[var(--color-surface-secondary)]/50 hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-surface-secondary)]"
+                  } ${uploading ? "pointer-events-none opacity-70" : ""}`}
+                  data-testid="products-upload-dropzone"
+                >
+                  <FileSpreadsheet className="h-10 w-10 text-[var(--color-text-muted)]" />
+                  <p className="text-center text-sm font-medium text-[var(--color-text)]">
+                    {uploading ? "กำลังอ่านไฟล์..." : "ลากไฟล์มาวาง หรือคลิกเพื่อเลือกไฟล์"}
+                  </p>
+                  <p className="text-center text-xs text-[var(--color-text-muted)]">
+                    รองรับ .xlsx, .xls, .csv
+                  </p>
+                </div>
 
-            <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)]/30 p-4">
-              <p className="mb-2 text-sm font-medium text-[var(--color-text-muted)]">
-                ดาวน์โหลดเทมเพลต
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={downloadTemplateCsv}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-secondary)] focus:outline-none"
-                  data-testid="products-upload-download-csv"
-                >
-                  <Download className="h-4 w-4" />
-                  CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={downloadTemplateXlsx}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-secondary)] focus:outline-none"
-                  data-testid="products-upload-download-xlsx"
-                >
-                  <Download className="h-4 w-4" />
-                  Excel (.xlsx)
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-                แถวแรกเป็นหัวคอลัมน์ (ชื่อ, แบรนด์, ราคา 3.5/5/6 ฟุต, ส่วนลด%, วันหมดโปร, ของแถม, ข้อความเครดิต, รูป)
-              </p>
-            </div>
+                <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)]/30 p-4">
+                  <p className="mb-2 text-sm font-medium text-[var(--color-text-muted)]">
+                    ดาวน์โหลดเทมเพลต
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={downloadTemplateCsv}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-secondary)] focus:outline-none"
+                      data-testid="products-upload-download-csv"
+                    >
+                      <Download className="h-4 w-4" />
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadTemplateXlsx}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-secondary)] focus:outline-none"
+                      data-testid="products-upload-download-xlsx"
+                    >
+                      <Download className="h-4 w-4" />
+                      Excel (.xlsx)
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                    แถวแรกเป็นหัวคอลัมน์ (ชื่อ, แบรนด์, ราคา 3.5/5/6 ฟุต). รูปและส่วนลดแก้ไขในระบบภายหลังได้
+                  </p>
+                </div>
+              </>
+            )}
 
             {message && (
               <p

@@ -1,18 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/types/product";
 import { CatalogCard } from "@/components/catalog/CatalogCard";
 
+const REFETCH_INTERVAL_MS = 60 * 1000; // 1 นาที
+
 export function CatalogPageClient({
-  products,
+  products: initialProducts,
   basePath = "",
 }: {
   products: Product[];
   /** เช่น "/catalog" ให้การ์ดลิงก์ไป /catalog/[id] */
   basePath?: string;
 }) {
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const refetch = useCallback(async () => {
+    try {
+      const res = await fetch("/api/catalog");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.products)) setProducts(data.products);
+    } catch {
+      // ล้มเหลวไม่ทำอะไร ใช้ข้อมูลเดิม
+    }
+  }, []);
+
+  useEffect(() => {
+    setProducts(initialProducts);
+  }, [initialProducts]);
+
+  useEffect(() => {
+    const interval = setInterval(refetch, REFETCH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+  useEffect(() => {
+    const onFocus = () => refetch();
+    const onVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refetch]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

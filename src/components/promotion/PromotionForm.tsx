@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
@@ -48,7 +49,7 @@ function SubmitButton() {
 
 export function PromotionForm({ action, id, products = [], initial }: PromotionFormProps) {
   const router = useRouter();
-  const [state, formAction] = useFormState(action, {} as PromotionFormState);
+  const [state, formAction] = useActionState(action, {} as PromotionFormState);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(initial?.productIds ?? [])
   );

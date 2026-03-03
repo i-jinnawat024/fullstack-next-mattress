@@ -81,3 +81,22 @@ body {
 .content-prose {
   max-width: var(--content-max);
 }
+
+/* ใบเสนอราคา — พิมพ์เฉพาะพื้นที่ #quote-print-area */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #quote-print-area,
+  #quote-print-area * {
+    visibility: visible;
+  }
+  #quote-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+  }
+}

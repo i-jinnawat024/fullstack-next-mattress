@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LayoutGrid, Package, Tag, BarChart3, Settings } from "lucide-react";
+import { LayoutGrid, Package, Tag, BarChart3, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/", label: "หน้าหลัก", icon: Home },
-  { href: "/catalog", label: "แคตตาล็อก", icon: LayoutGrid },
+  { href: "/", label: "แคตตาล็อก", icon: LayoutGrid },
   { href: "/products", label: "สินค้า", icon: Package },
   { href: "/promotion", label: "โปรโมชั่น", icon: Tag },
   { href: "/stat", label: "สถิติ", icon: BarChart3 },

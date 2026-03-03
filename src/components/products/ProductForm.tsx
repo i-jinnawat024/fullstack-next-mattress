@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useCallback, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +25,7 @@ type ProductFormProps = {
     size_3_5_msrp: number | null;
     size_5_msrp: number | null;
     size_6_msrp: number | null;
+    is_active: boolean;
   };
 };
 
@@ -48,7 +50,7 @@ function SubmitButton() {
 
 export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
   const router = useRouter();
-  const [state, formAction] = useFormState(action, {} as ProductFormState);
+  const [state, formAction] = useActionState(action, {} as ProductFormState);
   const [imageUrl, setImageUrl] = useState<string | null>(initial?.image_url ?? null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -76,6 +78,10 @@ export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
     toast.success(initial ? "บันทึกแล้ว" : "เพิ่มสินค้าแล้ว");
     router.push("/products");
   }, [state?.success, initial, router]);
+
+  useEffect(() => {
+    if (state?.error) toast.error(state.error);
+  }, [state?.error]);
 
   const handleUploadComplete = useCallback((res: { url?: string }[]) => {
     setUploadingImage(false);
@@ -109,15 +115,6 @@ export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
       noValidate
     >
       {id != null && <input type="hidden" name="id" value={id} />}
-      {state?.error && (
-        <div
-          className="rounded-xl border border-[var(--color-error)]/30 bg-[var(--color-error)]/10 px-4 py-3 text-sm text-[var(--color-error)]"
-          data-testid="product-form-error"
-          role="alert"
-        >
-          {state.error}
-        </div>
-      )}
 
       {/* ข้อมูลสินค้า */}
       <section
@@ -178,6 +175,22 @@ export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
           ) : (
             <input type="hidden" name="brand" value={brandValue} />
           )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            id="is_active"
+            name="is_active"
+            type="checkbox"
+            value="true"
+            defaultChecked={initial?.is_active ?? true}
+            className="h-5 w-5 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]"
+            data-testid="product-form-is-active"
+            aria-label="เปิดใช้งาน แสดงในแคตตาล็อก"
+          />
+          <label htmlFor="is_active" className="text-[var(--text-body)] text-[var(--color-text)]">
+            เปิดใช้งาน (แสดงในแคตตาล็อก)
+          </label>
         </div>
 
         <div data-testid="product-form-image">
@@ -291,7 +304,7 @@ export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
                 uploadProgressGranularity="fine"
                 appearance={{
                   container:
-                    "!min-h-[140px] !rounded-2xl !border-2 !border-dashed !border-[var(--color-border)] !bg-[var(--color-surface)]/60 !p-6 cursor-pointer transition-all duration-200 ut-ready:!border-[var(--color-primary)] ut-ready:!bg-[var(--color-primary)]/5 ut-uploading:!border-[var(--color-primary)] ut-uploading:!bg-[var(--color-primary)]/5 hover:ut-ready:!border-[var(--color-primary)] hover:ut-ready:!bg-[var(--color-primary)]/10",
+                    "!min-h-[140px] !rounded-2xl !border-2 !border-dashed !border-[var(--color-border)] !bg-[var(--color-surface)]/60 !p-6 cursor-pointer transition-all duration-200 ut-ready:!border-[var(--color-primary)] ut-ready:!bg-[var(--color-primary)]/5 ut-uploading:!border-[var(--color-primary)] ut-uploading:!bg-[var(--color-primary)]/5 hover:!border-[var(--color-primary)] hover:!bg-[var(--color-primary)]/10 hover:ut-ready:!border-[var(--color-primary)] hover:ut-ready:!bg-[var(--color-primary)]/15",
                   label:
                     "!text-[var(--color-text)] !text-sm font-medium",
                   allowedContent:
@@ -379,7 +392,7 @@ export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
         </div>
       </section>
 
-      <div className="pt-2">
+      <div className="flex justify-center pt-2">
         <SubmitButton />
       </div>
     </form>

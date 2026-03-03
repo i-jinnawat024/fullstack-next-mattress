@@ -38,10 +38,7 @@ export async function createProductAction(
     size_3_5_msrp: num(formData.get("size_3_5_msrp")),
     size_5_msrp: num(formData.get("size_5_msrp")),
     size_6_msrp: num(formData.get("size_6_msrp")),
-    discount_percent: 0,
-    promotion_end_date: null,
-    free_gifts: null,
-    credit_promo_text: null,
+    is_active: formData.get("is_active") === "true",
   };
   const parsed = productInsertSchema.safeParse(raw);
   if (!parsed.success) {
@@ -52,6 +49,10 @@ export async function createProductAction(
     revalidateCatalog();
     redirect("/products");
   } catch (e) {
+    const err = e as { code?: string; message?: string };
+    if (err?.code === "23505") {
+      return { error: "ข้อมูลซ้ำไม่ได้ (ชื่อสินค้ามีในระบบแล้ว)" };
+    }
     const msg =
       e instanceof Error
         ? e.message
@@ -81,10 +82,7 @@ export async function updateProductAction(
     size_3_5_msrp: num(formData.get("size_3_5_msrp")),
     size_5_msrp: num(formData.get("size_5_msrp")),
     size_6_msrp: num(formData.get("size_6_msrp")),
-    discount_percent: 0,
-    promotion_end_date: null,
-    free_gifts: null,
-    credit_promo_text: null,
+    is_active: formData.get("is_active") === "true",
   };
   const parsed = productInsertSchema.safeParse(raw);
   if (!parsed.success) {
@@ -95,6 +93,10 @@ export async function updateProductAction(
     revalidateCatalog();
     return { success: true };
   } catch (e) {
+    const err = e as { code?: string };
+    if (err?.code === "23505") {
+      return { error: "ข้อมูลซ้ำไม่ได้ (ชื่อสินค้ามีในระบบแล้ว)" };
+    }
     return { error: e instanceof Error ? e.message : "เกิดข้อผิดพลาด" };
   }
 }

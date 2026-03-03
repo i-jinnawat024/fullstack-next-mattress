@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { BackLink } from "@/components/ui/BackLink";
 import { getProductByIdForAdmin, getDistinctBrands } from "@/lib/data/products";
 import { updateProductFormAction } from "@/app/products/actions";
 import { ProductForm } from "@/components/products/ProductForm";
@@ -23,14 +23,14 @@ export default async function EditProductPage({
     >
       <div className="content-prose mx-auto">
         <nav className="mb-6" aria-label="breadcrumb">
-          <Link
+          <BackLink
             href="/products"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-sm text-[var(--color-text-muted)] no-underline transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-primary)]"
+            variant="pill"
             data-testid="products-back-link"
           >
             <span aria-hidden>←</span>
             กลับไปรายการสินค้า
-          </Link>
+          </BackLink>
         </nav>
         <header className="mb-8">
           <h1
@@ -54,6 +54,7 @@ export default async function EditProductPage({
             size_3_5_msrp: row.size_3_5_msrp,
             size_5_msrp: row.size_5_msrp,
             size_6_msrp: row.size_6_msrp,
+            is_active: row.is_active ?? true,
           }}
         />
       </div>
