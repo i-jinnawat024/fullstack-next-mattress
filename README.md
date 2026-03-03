@@ -1,4 +1,11 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+**Mattress City Sirindhorn — Sales Companion (ใบหม่อน)**  
+Next.js 16, Mobile-First. ข้อมูล 100% จาก **Supabase** (แคตตาล็อก + ยอดขาย/เป้า).
+
+## Supabase
+
+1. คัดลอก `.env.example` เป็น `.env.local`
+2. ใส่ `NEXT_PUBLIC_SUPABASE_URL` และ `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. รัน migration ใน Supabase SQL Editor ตามลำดับ: `001_products.sql` → `002_products_soft_delete.sql` → `003_promotions.sql` (ตารางโปรโมชั่น)
 
 ## Getting Started
 

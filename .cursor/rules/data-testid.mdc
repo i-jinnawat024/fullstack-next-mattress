@@ -1,0 +1,39 @@
+---
+description: ใช้ data-testid สำหรับ landmark และ element ที่ใช้ใน test/automation
+globs: "**/*.tsx"
+alwaysApply: true
+---
+
+# data-testid (Test IDs)
+
+ทุกหน้าหลักและ component ที่มี landmark หรือปุ่ม/ลิงก์สำคัญ **ต้องใส่ `data-testid`** เพื่อให้เลือก element ใน test หรือ automation ได้แน่นอน
+
+## กฎ
+
+- ใช้ attribute **`data-testid`** (ไม่ใช้ id หรือ class เป็นตัวชี้สำหรับ test)
+- ค่าใช้ **kebab-case** หรือ **ชื่อหน้าที่ตามด้วยคำอธิบาย** เช่น `products-page`, `products-heading`, `products-add-link`
+- หน้าหลัก: ใส่ `data-testid` ที่ container หลักของหน้า (เช่น `products-page`), หัวข้อ (เช่น `products-heading`), ปุ่ม/ลิงก์สำคัญ (เช่น `products-add-link`)
+- รายการ/ตาราง: ใส่ที่ wrapper ตาราง (`products-table`), แถว (`product-row-{id}`), ปุ่มแก้ไข/ลบ (`product-edit-{id}`, `product-delete-{id}`)
+- สถานะว่าง (empty state): ใส่ที่ข้อความหรือ block นั้น (เช่น `products-empty`)
+
+## ตัวอย่าง
+
+```tsx
+// หน้าหลัก
+<div className="container-app ..." data-testid="products-page">
+  <h1 data-testid="products-heading">จัดการสินค้า</h1>
+  <Link href="/products/new" data-testid="products-add-link">เพิ่มสินค้า</Link>
+  <div data-testid="products-list">...</div>
+</div>
+
+// รายการ
+<p data-testid="products-empty">ยังไม่มีสินค้า</p>
+<table data-testid="products-table">...</table>
+<tr data-testid={`product-row-${r.id}`}>...</tr>
+<Link data-testid={`product-edit-${r.id}`}>แก้ไข</Link>
+<button data-testid={`product-delete-${r.id}`}>ลบ</button>
+```
+
+## ชื่อที่ใช้ในโปรเจกต์นี้
+
+- หน้าสินค้า: `products-page`, `products-heading`, `products-add-link`, `products-list`, `products-empty`, `products-table`, `product-row-{id}`, `product-edit-{id}`, `product-delete-{id}`, `product-name-link-{id}`
