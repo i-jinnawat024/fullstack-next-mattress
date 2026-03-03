@@ -13,6 +13,8 @@ export interface Promotion {
   description: string | null;
   discountType: DiscountType;
   discountValue: number;
+  /** ราคาขั้นต่ำ (บาท) เพื่อใช้โปรนี้ — null = ใช้ได้ทุกราคา */
+  minOrderAmount?: number | null;
   createdAt?: string;
   updatedAt?: string;
   /** Product IDs linked to this promotion (for form/edit) */

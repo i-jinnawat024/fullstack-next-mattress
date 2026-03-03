@@ -24,6 +24,7 @@ type PromotionFormProps = {
     description: string | null;
     discountType: "percent" | "fixed";
     discountValue: number;
+    minOrderAmount?: number | null;
     productIds?: string[];
   };
 };
@@ -284,6 +285,26 @@ export function PromotionForm({ action, id, products = [], initial }: PromotionF
             />
             <p className="mt-1.5 text-xs text-[var(--color-text-muted)]">
               กรอกตัวเลขเท่านั้น — เปอร์เซ็นต์ เช่น 10 หรือ 20, บาท เช่น 500
+            </p>
+          </div>
+          <div>
+            <label htmlFor="promo-min-order-amount" className={labelClass}>
+              ราคาขั้นต่ำ (บาท) เพื่อใช้โปรนี้
+            </label>
+            <input
+              id="promo-min-order-amount"
+              name="min_order_amount"
+              type="number"
+              min={0}
+              step={1}
+              defaultValue={initial?.minOrderAmount ?? ""}
+              placeholder="เว้นว่าง = ใช้ได้ทุกราคา"
+              className={`${inputClass} md:max-w-[180px]`}
+              data-testid="promotion-min-order-amount"
+              aria-describedby="promo-min-order-desc"
+            />
+            <p id="promo-min-order-desc" className="mt-1.5 text-xs text-[var(--color-text-muted)]">
+              ถ้ากรอก ระบบจะใช้โปรนี้เฉพาะเมื่อราคาสินค้าไม่ต่ำกว่านี้ (บาท)
             </p>
           </div>
         </div>

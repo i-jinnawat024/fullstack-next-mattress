@@ -13,6 +13,7 @@ export const promotionInsertSchema = z
     description: z.string().nullable().optional(),
     discount_type: z.enum(["percent", "fixed"]),
     discount_value: z.number().min(0, "ค่าลดต้องไม่ติดลบ"),
+    min_order_amount: z.number().min(0).nullable().optional(),
   })
   .refine(
     (data) => {

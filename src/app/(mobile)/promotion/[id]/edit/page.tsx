@@ -57,6 +57,7 @@ export default async function EditPromotionPage({
             description: promotion.description,
             discountType: promotion.discountType,
             discountValue: promotion.discountValue,
+            minOrderAmount: promotion.minOrderAmount ?? null,
             productIds: promotion.productIds ?? [],
           }}
         />

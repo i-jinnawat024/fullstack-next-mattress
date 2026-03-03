@@ -6,11 +6,11 @@ import { LayoutGrid, Package, Tag, BarChart3, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: "/", label: "แคตตาล็อก", icon: LayoutGrid },
-  { href: "/products", label: "สินค้า", icon: Package },
-  { href: "/promotion", label: "โปรโมชั่น", icon: Tag },
-  { href: "/stat", label: "สถิติ", icon: BarChart3 },
-  { href: "/setting", label: "ตั้งค่า", icon: Settings },
+  { href: "/", label: "Catalog", icon: LayoutGrid },
+  { href: "/products", label: "Products", icon: Package },
+  { href: "/promotion", label: "Promotion", icon: Tag },
+  { href: "/stat", label: "Stats", icon: BarChart3 },
+  { href: "/setting", label: "Settings", icon: Settings },
 ];
 
 export function BottomNav() {
@@ -20,7 +20,7 @@ export function BottomNav() {
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden items-center justify-around border-t border-[var(--color-border)] bg-[var(--color-surface)] pb-[env(safe-area-inset-bottom)]"
       style={{ minHeight: "var(--nav-height)" }}
-      aria-label="เมนูหลัก"
+      aria-label="Main menu"
     >
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
         const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));

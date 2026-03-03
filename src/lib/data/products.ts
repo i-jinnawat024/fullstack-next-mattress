@@ -3,12 +3,7 @@
  */
 
 import { getSupabaseServer } from "@/lib/db/client";
-import {
-  computeNetPrice,
-  computeNetPriceFromPromotion,
-  discountPercentFromNet,
-  getBestPromotionForPrice,
-} from "@/lib/price";
+import { computeStackedNetPrice, discountPercentFromNet } from "@/lib/price";
 import type { Product, PriceBySize, SizeKey, ProductActivePromotion } from "@/types/product";
 import type { Database } from "@/lib/db/schema";
 import { listPromotions } from "@/lib/data/promotions";
@@ -23,25 +18,21 @@ const SIZES: { key: SizeKey; col: keyof Pick<ProductRow, "size_3_5_msrp" | "size
 
 function rowToProduct(row: ProductRow, activePromotions?: ProductActivePromotion[]): Product {
   const sizeRows = SIZES.filter((s) => row[s.col] != null);
-  const representativeMsrp =
-    sizeRows.length > 0 ? (row[sizeRows[0].col] ?? 0) : 0;
-  const bestPromo =
-    activePromotions?.length && representativeMsrp > 0
-      ? getBestPromotionForPrice(activePromotions, representativeMsrp)
-      : null;
+  const promoForStack = activePromotions?.length
+    ? activePromotions.map((p) => ({
+        discountType: p.discountType,
+        discountValue: p.discountValue,
+        minOrderAmount: p.minOrderAmount ?? null,
+      }))
+    : [];
 
   const prices: PriceBySize[] = sizeRows.map((s) => {
     const msrp = row[s.col] ?? 0;
-    let discountPercent: number;
-    let netPrice: number;
-    if (bestPromo) {
-      netPrice = computeNetPriceFromPromotion(msrp, bestPromo.discountType, bestPromo.discountValue);
-      discountPercent = discountPercentFromNet(msrp, netPrice);
-    } else {
-      // ไม่มีโปรผูก = แสดงราคาจริง (msrp) ไม่มีส่วนลด
-      discountPercent = 0;
-      netPrice = msrp;
-    }
+    const netPrice =
+      promoForStack.length > 0
+        ? computeStackedNetPrice(msrp, promoForStack)
+        : msrp;
+    const discountPercent = discountPercentFromNet(msrp, netPrice);
     return {
       size: s.key,
       msrp,
@@ -101,14 +92,17 @@ export async function getProductsForCatalog(): Promise<Product[]> {
     return rows.map((row) => rowToProduct(row));
   }
   const promoIds = activePromotions.map((p) => p.id);
-  let ppRows: { promotion_id: string; product_id: string }[] | null = null;
+  type PPRow = { promotion_id: string; product_id: string; application_order: number };
+  let ppRows: PPRow[] | null = null;
   try {
     const res = await supabase
       .from("promotion_products")
-      .select("promotion_id, product_id")
-      .in("promotion_id", promoIds);
+      .select("promotion_id, product_id, application_order")
+      .in("promotion_id", promoIds)
+      .order("product_id")
+      .order("application_order", { ascending: true });
     if (res.error) throw res.error;
-    ppRows = res.data;
+    ppRows = res.data as PPRow[];
   } catch (e: unknown) {
     const err = e as { code?: string };
     if (err?.code === "PGRST205" || (typeof err?.code === "string" && String(err.code).includes("42P01"))) {
@@ -119,18 +113,18 @@ export async function getProductsForCatalog(): Promise<Product[]> {
   const promoMap = new Map(activePromotions.map((p) => [p.id, p]));
   const productToPromos = new Map<string, ProductActivePromotion[]>();
   for (const pp of ppRows ?? []) {
-    const p = promoMap.get((pp as { promotion_id: string }).promotion_id);
+    const p = promoMap.get(pp.promotion_id);
     if (!p) continue;
-    const pid = (pp as { product_id: string }).product_id;
-    const arr = productToPromos.get(pid) ?? [];
+    const arr = productToPromos.get(pp.product_id) ?? [];
     arr.push({
       id: p.id,
       name: p.name,
       endDate: p.endDate,
       discountType: p.discountType,
       discountValue: p.discountValue,
+      minOrderAmount: p.minOrderAmount ?? null,
     });
-    productToPromos.set(pid, arr);
+    productToPromos.set(pp.product_id, arr);
   }
   const products = rows.map((row) =>
     rowToProduct(row, productToPromos.get(row.id))
@@ -181,19 +175,22 @@ export async function getProductByIdWithActivePromotions(id: string): Promise<Pr
     try {
       const { data: ppRows, error: ppError } = await supabase
         .from("promotion_products")
-        .select("promotion_id")
+        .select("promotion_id, application_order")
         .eq("product_id", id)
-        .in("promotion_id", activePromotions.map((p) => p.id));
+        .in("promotion_id", activePromotions.map((p) => p.id))
+        .order("application_order", { ascending: true });
       if (!ppError && ppRows?.length) {
-        const linked = (ppRows as { promotion_id: string }[]).map((r) => r.promotion_id);
-        promos = activePromotions
-          .filter((p) => linked.includes(p.id))
+        const promoMap = new Map(activePromotions.map((p) => [p.id, p]));
+        promos = (ppRows as { promotion_id: string; application_order: number }[])
+          .map((r) => promoMap.get(r.promotion_id))
+          .filter((p): p is NonNullable<typeof p> => p != null)
           .map((p) => ({
             id: p.id,
             name: p.name,
             endDate: p.endDate,
             discountType: p.discountType,
             discountValue: p.discountValue,
+            minOrderAmount: p.minOrderAmount ?? null,
           }));
       }
     } catch (_e) {

@@ -70,11 +70,13 @@ export interface Database {
           description: string | null;
           discount_type: "percent" | "fixed";
           discount_value: number;
+          min_order_amount: number | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["promotions"]["Row"], "id" | "created_at" | "updated_at"> & {
           id?: string;
+          min_order_amount?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -84,10 +86,12 @@ export interface Database {
         Row: {
           promotion_id: string;
           product_id: string;
+          application_order: number;
         };
         Insert: {
           promotion_id: string;
           product_id: string;
+          application_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["promotion_products"]["Insert"]>;
       };

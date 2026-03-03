@@ -18,6 +18,7 @@ function rowToPromotion(row: PromotionRow): Promotion {
     description: row.description,
     discountType: row.discount_type,
     discountValue: Number(row.discount_value),
+    minOrderAmount: row.min_order_amount != null ? Number(row.min_order_amount) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -97,7 +98,11 @@ export async function syncPromotionProducts(promotionId: string, productIds: str
     if (delError) throw delError;
     const uniqueIds = [...new Set(productIds)].filter(Boolean);
     if (uniqueIds.length === 0) return;
-    const rows = uniqueIds.map((product_id) => ({ promotion_id: promotionId, product_id }));
+    const rows = uniqueIds.map((product_id, index) => ({
+      promotion_id: promotionId,
+      product_id,
+      application_order: index,
+    }));
     const { error: insError } = await supabase.from("promotion_products").insert(rows as never);
     if (insError) throw insError;
   } catch (e: unknown) {
@@ -107,6 +112,37 @@ export async function syncPromotionProducts(promotionId: string, productIds: str
     }
     throw e;
   }
+}
+
+/** Get ordered promotion IDs for a product (for catalog discount manager) */
+export async function getProductPromotionIds(productId: string): Promise<string[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from("promotion_products")
+    .select("promotion_id")
+    .eq("product_id", productId)
+    .order("application_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r: { promotion_id: string }) => r.promotion_id);
+}
+
+/** Sync promotion_products for a product: replace with ordered promotion_ids (ลำดับ = application_order) */
+export async function syncProductPromotions(productId: string, promotionIds: string[]): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error: delError } = await supabase
+    .from("promotion_products")
+    .delete()
+    .eq("product_id", productId);
+  if (delError) throw delError;
+  const ids = promotionIds.filter(Boolean);
+  if (ids.length === 0) return;
+  const rows = ids.map((promotion_id, index) => ({
+    product_id: productId,
+    promotion_id,
+    application_order: index,
+  }));
+  const { error: insError } = await supabase.from("promotion_products").insert(rows as never);
+  if (insError) throw insError;
 }
 
 export async function createPromotion(

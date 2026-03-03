@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ImageIcon, Link2 } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { BackLink } from "@/components/ui/BackLink";
-import { getCachedProductById } from "@/lib/cache/catalog";
-import { PriceDisplay } from "@/components/product/PriceDisplay";
-import { PromotionBlock } from "@/components/product/PromotionBlock";
+import { getProductByIdWithActivePromotions } from "@/lib/data/products";
+import { listPromotions } from "@/lib/data/promotions";
+import { CatalogDetailContent } from "@/components/catalog/CatalogDetailContent";
 
 export default async function CatalogDetailPage({
   params,
@@ -12,12 +12,11 @@ export default async function CatalogDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = await getCachedProductById(id);
+  const [product, availablePromotions] = await Promise.all([
+    getProductByIdWithActivePromotions(id),
+    listPromotions({ activeOnly: true }),
+  ]);
   if (!product) notFound();
-
-  const hasDiscountMatch =
-    (product.activePromotions?.length ?? 0) > 0 ||
-    product.prices.some((p) => p.discountPercent > 0);
 
   return (
     <div
@@ -65,21 +64,7 @@ export default async function CatalogDetailPage({
           </p>
         </div>
 
-        <div className="space-y-6 p-6">
-          <section aria-label="ราคาหลังหักส่วนลด">
-            <PriceDisplay prices={product.prices} />
-          </section>
-          {hasDiscountMatch && (
-            <p
-              className="flex items-center justify-center gap-1.5 text-xs text-[var(--color-text-muted)]"
-              data-testid="catalog-detail-has-discount"
-            >
-              <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span>สินค้านี้มีส่วนลดที่จับคู่กับโปรโมชั่นอยู่</span>
-            </p>
-          )}
-          <PromotionBlock product={product} />
-        </div>
+        <CatalogDetailContent product={product} availablePromotions={availablePromotions} />
       </article>
 
       <p className="mt-6 text-center">

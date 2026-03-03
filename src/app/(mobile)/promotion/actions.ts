@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 import {
   createPromotion,
   updatePromotion,
@@ -10,6 +10,13 @@ import {
 import { promotionInsertSchema } from "@/lib/validation/promotion";
 import type { Database } from "@/lib/db/schema";
 import { CATALOG_TAG } from "@/lib/cache/catalog";
+
+/** ล้าง cache แคตตาล็อกหลังแก้ไขโปร — tag + path เพื่อให้หน้า catalog อัปเดตทันที */
+function revalidateCatalog() {
+  revalidateTag(CATALOG_TAG, "max");
+  revalidatePath("/catalog");
+  revalidatePath("/");
+}
 
 export type PromotionFormState = {
   error?: string;
@@ -21,6 +28,11 @@ function parseFormData(formData: FormData) {
   const isActive = formData.get("is_active") === "on" || formData.get("is_active") === "true";
   const discountType = formData.get("discount_type") as string;
   const productIds = formData.getAll("product_ids").filter((v): v is string => typeof v === "string" && v.trim() !== "");
+  const minOrderRaw = formData.get("min_order_amount");
+  const min_order_amount =
+    minOrderRaw === "" || minOrderRaw === null || minOrderRaw === undefined
+      ? null
+      : Number(minOrderRaw);
   const raw = {
     name: String(formData.get("name") ?? "").trim(),
     is_active: isActive,
@@ -29,6 +41,7 @@ function parseFormData(formData: FormData) {
     description: String(formData.get("description") ?? "").trim() || null,
     discount_type: discountType === "fixed" ? "fixed" as const : "percent" as const,
     discount_value: Number(formData.get("discount_value")) || 0,
+    min_order_amount: typeof min_order_amount === "number" && !Number.isNaN(min_order_amount) && min_order_amount >= 0 ? min_order_amount : null,
     product_ids: productIds,
   };
   return raw;
@@ -56,10 +69,11 @@ export async function createPromotionAction(
       description: parsed.data.description ?? null,
       discount_type: parsed.data.discount_type,
       discount_value: parsed.data.discount_value,
+      min_order_amount: parsed.data.min_order_amount ?? null,
     };
     const id = await createPromotion(insert);
     await syncPromotionProducts(id, raw.product_ids);
-    revalidateTag(CATALOG_TAG, "max");
+    revalidateCatalog();
     return { success: true, id };
   } catch (e) {
     const msg = getErrorMessage(e);
@@ -98,9 +112,10 @@ export async function updatePromotionAction(
       description: parsed.data.description ?? null,
       discount_type: parsed.data.discount_type,
       discount_value: parsed.data.discount_value,
+      min_order_amount: parsed.data.min_order_amount ?? null,
     });
     await syncPromotionProducts(id, raw.product_ids);
-    revalidateTag(CATALOG_TAG, "max");
+    revalidateCatalog();
     return { success: true };
   } catch (e) {
     return { error: getErrorMessage(e) };
@@ -120,7 +135,7 @@ export async function updatePromotionFormAction(
 export async function deletePromotionAction(id: string): Promise<{ error?: string }> {
   try {
     await deletePromotion(id);
-    revalidateTag(CATALOG_TAG, "max");
+    revalidateCatalog();
     return {};
   } catch (e) {
     return { error: getErrorMessage(e) };

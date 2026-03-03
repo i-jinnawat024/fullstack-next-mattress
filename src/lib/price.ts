@@ -28,6 +28,36 @@ export function discountPercentFromNet(msrp: number, netPrice: number): number {
   return Math.round(Math.max(0, Math.min(100, p)) * 100) / 100;
 }
 
+/** Input for stacked discount: โปรเรียงตาม application_order */
+export type PromotionForStack = {
+  discountType: "percent" | "fixed";
+  discountValue: number;
+  minOrderAmount?: number | null;
+};
+
+/**
+ * คำนวณราคาสุทธิจาก MSRP โดยสะสมส่วนลดตามลำดับที่ใส่
+ * แต่ละโปร: ถ้า minOrderAmount เป็น null หรือ price ปัจจุบัน >= minOrderAmount จึง apply
+ * fixed = ลบจาก price, percent = ลด % จาก price ปัจจุบัน
+ */
+export function computeStackedNetPrice(
+  msrp: number,
+  promotions: PromotionForStack[]
+): number {
+  if (msrp <= 0) return 0;
+  let price = msrp;
+  for (const p of promotions) {
+    const min = p.minOrderAmount ?? 0;
+    if (price < min) continue;
+    if (p.discountType === "fixed") {
+      price = Math.max(0, Math.round(price - p.discountValue));
+    } else {
+      price = Math.round(price * (1 - p.discountValue / 100));
+    }
+  }
+  return price;
+}
+
 /** Pick the best active promotion (lowest net price) using a representative MSRP */
 export function getBestPromotionForPrice(
   promotions: { discountType: "percent" | "fixed"; discountValue: number }[],

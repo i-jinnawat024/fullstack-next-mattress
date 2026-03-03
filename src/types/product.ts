@@ -11,13 +11,15 @@ export interface PriceBySize {
   netPrice: number;
 }
 
-/** โปรโมชั่นที่ผูกกับสินค้า (จาก promotion_products) */
+/** โปรโมชั่นที่ผูกกับสินค้า (จาก promotion_products) เรียงตาม application_order */
 export interface ProductActivePromotion {
   id: string;
   name: string;
   endDate: string;
   discountType: "percent" | "fixed";
   discountValue: number;
+  /** ราคาขั้นต่ำ (บาท) — null = ใช้ได้ทุกราคา */
+  minOrderAmount?: number | null;
 }
 
 export interface Product {
