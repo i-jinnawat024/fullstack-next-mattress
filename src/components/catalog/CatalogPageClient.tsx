@@ -4,7 +4,14 @@ import { useMemo, useState } from "react";
 import type { Product } from "@/types/product";
 import { CatalogCard } from "@/components/catalog/CatalogCard";
 
-export function CatalogPageClient({ products }: { products: Product[] }) {
+export function CatalogPageClient({
+  products,
+  basePath = "",
+}: {
+  products: Product[];
+  /** เช่น "/catalog" ให้การ์ดลิงก์ไป /catalog/[id] */
+  basePath?: string;
+}) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -59,7 +66,7 @@ export function CatalogPageClient({ products }: { products: Product[] }) {
         >
           {filtered.map((product) => (
             <li key={product.id} data-testid={`catalog-card-${product.id}`}>
-              <CatalogCard product={product} />
+              <CatalogCard product={product} basePath={basePath} />
             </li>
           ))}
         </ul>

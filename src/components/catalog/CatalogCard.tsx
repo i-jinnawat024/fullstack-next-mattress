@@ -8,17 +8,25 @@ function formatPrice(n: number) {
 }
 
 /** การ์ดแคตตาล็อก: รูป (หรือ placeholder), ชื่อ, แบรนด์, แท็ก, ราคาโปรสรุป */
-export function CatalogCard({ product }: { product: Product }) {
+export function CatalogCard({
+  product,
+  basePath = "",
+}: {
+  product: Product;
+  /** เช่น "/catalog" ให้ลิงก์ไป /catalog/[id] */
+  basePath?: string;
+}) {
   const hasActivePromo = (product.activePromotions?.length ?? 0) > 0;
   const firstPromo = product.activePromotions?.[0];
   const minNet =
     product.prices.length > 0
       ? Math.min(...product.prices.map((p) => p.netPrice))
       : null;
+  const href = basePath ? `${basePath}/${product.id}` : `/${product.id}`;
 
   return (
     <Link
-      href={`/${product.id}`}
+      href={href}
       className={`block rounded-2xl overflow-hidden shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] ${
         hasActivePromo
           ? "border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5"

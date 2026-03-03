@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, LayoutGrid, Package, Tag, BarChart3, Settings } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const NAV_ITEMS = [
-  { href: "/", label: "หน้าหลัก", icon: "🏠" },
-  { href: "/products", label: "สินค้า", icon: "📦" },
-  { href: "/promotion", label: "โปรโมชั่น", icon: "🏷️" },
-  { href: "/stat", label: "สถิติ", icon: "📊" },
-  { href: "/setting", label: "ตั้งค่า", icon: "⚙️" },
-] as const;
+const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "หน้าหลัก", icon: Home },
+  { href: "/catalog", label: "แคตตาล็อก", icon: LayoutGrid },
+  { href: "/products", label: "สินค้า", icon: Package },
+  { href: "/promotion", label: "โปรโมชั่น", icon: Tag },
+  { href: "/stat", label: "สถิติ", icon: BarChart3 },
+  { href: "/setting", label: "ตั้งค่า", icon: Settings },
+];
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -20,7 +23,7 @@ export function BottomNav() {
       style={{ minHeight: "var(--nav-height)" }}
       aria-label="เมนูหลัก"
     >
-      {NAV_ITEMS.map(({ href, label, icon }) => {
+      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
         const isActive = pathname === href || (href !== "/" && pathname.startsWith(href));
         return (
           <Link
@@ -33,7 +36,7 @@ export function BottomNav() {
             }}
             aria-current={isActive ? "page" : undefined}
           >
-            <span className="text-lg" aria-hidden>{icon}</span>
+            <Icon className="size-5 shrink-0" aria-hidden />
             <span>{label}</span>
           </Link>
         );

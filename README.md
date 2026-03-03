@@ -5,7 +5,15 @@ Next.js 16, Mobile-First. ข้อมูล 100% จาก **Supabase** (แค
 
 1. คัดลอก `.env.example` เป็น `.env.local`
 2. ใส่ `NEXT_PUBLIC_SUPABASE_URL` และ `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. รัน migration ใน Supabase SQL Editor ตามลำดับ: `001_products.sql` → `002_products_soft_delete.sql` → `003_promotions.sql` (ตารางโปรโมชั่น)
+3. รัน migration ใน Supabase SQL Editor ตามลำดับในโฟลเดอร์ `supabase/migrations/`:
+   - `001_products.sql`
+   - `002_products_soft_delete.sql`
+   - `003_promotions.sql`
+   - `004_products_image_url.sql`
+   - `005_promotions_rls.sql`
+   - `006_products_rls.sql`
+   - `007_promotion_products.sql`
+   - `008_promotions_image_url.sql`
 
 ## Getting Started
 
