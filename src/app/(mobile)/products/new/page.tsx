@@ -1,25 +1,18 @@
-import Link from "next/link";
 import { createProductAction } from "@/app/products/actions";
 import { getDistinctBrands } from "@/lib/data/products";
 import { ProductForm } from "@/components/products/ProductForm";
+import { BackLink } from "@/components/ui/BackLink";
 
 export default async function NewProductPage() {
   const brands = await getDistinctBrands();
   return (
     <div
-      className="container-app mx-auto py-6 md:py-10"
+      className="container-app mx-auto max-w-none w-full py-6 md:py-10"
       data-testid="products-new-page"
     >
-      <div className="content-prose mx-auto">
+      <div className="content-prose mx-auto max-w-none w-full">
         <nav className="mb-6" aria-label="breadcrumb">
-          <Link
-            href="/products"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-sm text-[var(--color-text-muted)] no-underline transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-secondary)] hover:text-[var(--color-primary)]"
-            data-testid="products-back-link"
-          >
-            <span aria-hidden>←</span>
-            กลับไปรายการสินค้า
-          </Link>
+          <BackLink data-testid="products-back-link" />
         </nav>
         <header className="mb-8">
           <h1

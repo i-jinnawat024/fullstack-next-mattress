@@ -38,8 +38,9 @@ function rowToProduct(row: ProductRow, activePromotions?: ProductActivePromotion
       netPrice = computeNetPriceFromPromotion(msrp, bestPromo.discountType, bestPromo.discountValue);
       discountPercent = discountPercentFromNet(msrp, netPrice);
     } else {
-      discountPercent = row.discount_percent;
-      netPrice = computeNetPrice(msrp, discountPercent);
+      // ไม่มีโปรผูก = แสดงราคาจริง (msrp) ไม่มีส่วนลด
+      discountPercent = 0;
+      netPrice = msrp;
     }
     return {
       size: s.key,
@@ -49,19 +50,12 @@ function rowToProduct(row: ProductRow, activePromotions?: ProductActivePromotion
     };
   });
 
-  const freeGifts: string[] = row.free_gifts
-    ? row.free_gifts.split("|").map((s) => s.trim()).filter(Boolean)
-    : [];
-
   const product: Product = {
     id: row.id,
     name: row.name,
     brand: row.brand,
     imageUrl: row.image_url ?? null,
     prices,
-    promotionEndDate: row.promotion_end_date,
-    freeGifts,
-    creditPromoText: row.credit_promo_text,
   };
   if (activePromotions?.length) product.activePromotions = activePromotions;
   return product;
@@ -87,6 +81,7 @@ export async function getAllProducts(): Promise<Product[]> {
     .from("products")
     .select("*")
     .is("deleted_at", null)
+    .eq("is_active", true)
     .order("name");
   if (error) throw error;
   return (data ?? []).map((row) => rowToProduct(row as ProductRow));
@@ -96,7 +91,7 @@ export async function getAllProducts(): Promise<Product[]> {
 export async function getProductsForCatalog(): Promise<Product[]> {
   const supabase = getSupabaseServer();
   const [productsRes, activePromotions] = await Promise.all([
-    supabase.from("products").select("*").is("deleted_at", null).order("name"),
+    supabase.from("products").select("*").is("deleted_at", null).eq("is_active", true).order("name"),
     listPromotions({ activeOnly: true }),
   ]);
   if (productsRes.error) throw productsRes.error;
@@ -156,6 +151,7 @@ export async function getProductById(id: string): Promise<Product | null> {
     .select("*")
     .eq("id", id)
     .is("deleted_at", null)
+    .eq("is_active", true)
     .single();
   if (error) {
     if (error.code === "PGRST116") return null;
@@ -172,6 +168,7 @@ export async function getProductByIdWithActivePromotions(id: string): Promise<Pr
     .select("*")
     .eq("id", id)
     .is("deleted_at", null)
+    .eq("is_active", true)
     .single();
   if (error || !row) {
     if (error?.code === "PGRST116") return null;
@@ -215,6 +212,7 @@ export async function searchProducts(query: string, limit = 20): Promise<Product
     .from("products")
     .select("*")
     .is("deleted_at", null)
+    .eq("is_active", true)
     .or(`name.ilike.%${q}%,brand.ilike.%${q}%`)
     .order("name")
     .limit(limit);
@@ -245,7 +243,18 @@ export async function getProductByIdForAdmin(id: string): Promise<ProductRow | n
   return data as ProductRow;
 }
 
-/** Admin: create product — ต้องรัน migrations 002 (deleted_at), 004 (image_url) ให้ครบ */
+/** คอลัมน์ products ที่ยังมีใน DB (หลัง migration 010, 011 เอา discount/promotion ออก) */
+const PRODUCT_WRITABLE_KEYS = [
+  "name",
+  "brand",
+  "size_3_5_msrp",
+  "size_5_msrp",
+  "size_6_msrp",
+  "image_url",
+  "is_active",
+] as const;
+
+/** Admin: create product — ต้องรัน migrations 002 (deleted_at), 004 (image_url), 009 (is_active) */
 export async function createProduct(
   input: Omit<ProductRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { deleted_at?: null }
 ) {
@@ -256,11 +265,8 @@ export async function createProduct(
     size_3_5_msrp: input.size_3_5_msrp ?? null,
     size_5_msrp: input.size_5_msrp ?? null,
     size_6_msrp: input.size_6_msrp ?? null,
-    discount_percent: input.discount_percent ?? 0,
-    promotion_end_date: input.promotion_end_date ?? null,
-    free_gifts: input.free_gifts ?? null,
-    credit_promo_text: input.credit_promo_text ?? null,
     image_url: input.image_url ?? null,
+    is_active: input.is_active ?? true,
     deleted_at: null,
     updated_at: new Date().toISOString(),
   };
@@ -273,16 +279,19 @@ export async function createProduct(
   return (data as { id: string }).id;
 }
 
-/** Admin: update product */
+/** Admin: update product — ส่งเฉพาะคอลัมน์ที่ยังมีในตาราง (ไม่รวม discount_percent, promotion_end_date, free_gifts, credit_promo_text) */
 export async function updateProduct(
   id: string,
   input: Partial<Omit<ProductRow, "id" | "created_at" | "deleted_at">>
 ) {
   const supabase = getSupabaseServer();
-  const { error } = await supabase
-    .from("products")
-    .update({ ...input, updated_at: new Date().toISOString() } as never)
-    .eq("id", id);
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const key of PRODUCT_WRITABLE_KEYS) {
+    if (key in input && input[key as keyof typeof input] !== undefined) {
+      payload[key] = input[key as keyof typeof input];
+    }
+  }
+  const { error } = await supabase.from("products").update(payload as never).eq("id", id);
   if (error) throw error;
 }
 
@@ -315,7 +324,7 @@ export async function restoreProduct(id: string) {
 /** Payload สำหรับอัปโหลดจาก xlsx/csv — key เป็นชื่อคอลัมน์ (ไทย/อังกฤษ) ได้ */
 export type ProductUploadRow = Record<string, unknown>;
 
-const HEADER_MAP: Record<string, keyof Pick<ProductRow, "name" | "brand" | "size_3_5_msrp" | "size_5_msrp" | "size_6_msrp" | "discount_percent" | "promotion_end_date" | "free_gifts" | "credit_promo_text" | "image_url">> = {
+const HEADER_MAP: Record<string, keyof Pick<ProductRow, "name" | "brand" | "size_3_5_msrp" | "size_5_msrp" | "size_6_msrp" | "image_url">> = {
   name: "name",
   ชื่อ: "name",
   brand: "brand",
@@ -332,21 +341,12 @@ const HEADER_MAP: Record<string, keyof Pick<ProductRow, "name" | "brand" | "size
   "size_6": "size_6_msrp",
   "ราคา 6 ฟุต": "size_6_msrp",
   "ราคา 6": "size_6_msrp",
-  discount_percent: "discount_percent",
-  "ส่วนลด%": "discount_percent",
-  "ส่วนลด": "discount_percent",
-  promotion_end_date: "promotion_end_date",
-  "วันหมดโปร": "promotion_end_date",
-  free_gifts: "free_gifts",
-  ของแถม: "free_gifts",
-  credit_promo_text: "credit_promo_text",
-  "ข้อความเครดิต": "credit_promo_text",
   image_url: "image_url",
   รูป: "image_url",
   image: "image_url",
 };
 
-type ProductUploadField = keyof Pick<ProductRow, "name" | "brand" | "size_3_5_msrp" | "size_5_msrp" | "size_6_msrp" | "discount_percent" | "promotion_end_date" | "free_gifts" | "credit_promo_text" | "image_url">;
+type ProductUploadField = keyof Pick<ProductRow, "name" | "brand" | "size_3_5_msrp" | "size_5_msrp" | "size_6_msrp" | "image_url">;
 
 /** ดึงค่าจาก raw row ตาม field — หา key ใน raw ที่แมปไป field นั้น */
 function getField(raw: ProductUploadRow, field: ProductUploadField): unknown {
@@ -391,6 +391,7 @@ function normalizeUploadRow(raw: ProductUploadRow): Omit<ProductRow, "id" | "cre
     free_gifts: str(getField(raw, "free_gifts")) ?? null,
     credit_promo_text: str(getField(raw, "credit_promo_text")) ?? null,
     image_url: str(getField(raw, "image_url")) ?? null,
+    is_active: true,
   };
 }
 

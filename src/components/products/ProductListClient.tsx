@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
+import Swal from "sweetalert2";
 import type { Database } from "@/lib/db/schema";
 import { softDeleteProductAction } from "@/app/products/actions";
 import { CardListItem } from "@/components/ui/CardListItem";
@@ -25,10 +26,24 @@ export function ProductListClient({ rows, emptyState }: ProductListClientProps) 
   const router = useRouter();
 
   const handleDelete = async (id: string) => {
-    if (!confirm("ต้องการลบรายการนี้หรือไม่? (สามารถกู้คืนได้)")) return;
+    const result = await Swal.fire({
+      title: "ยืนยันการลบ",
+      text: "ต้องการลบรายการนี้หรือไม่? ",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "var(--color-error)",
+      cancelButtonColor: "var(--color-text-muted)",
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+    });
+    if (!result.isConfirmed) return;
     const { error } = await softDeleteProductAction(id);
-    if (error) alert(error);
-    else router.refresh();
+    if (error) {
+      void Swal.fire({ title: "เกิดข้อผิดพลาด", text: error, icon: "error" });
+    } else {
+      void Swal.fire({ title: "ลบแล้ว", icon: "success", timer: 1500, showConfirmButton: false });
+      router.refresh();
+    }
   };
 
   return (
@@ -62,12 +77,18 @@ export function ProductListClient({ rows, emptyState }: ProductListClientProps) 
                     {r.name}
                   </Link>
                   <p className="text-sm text-[var(--color-text-muted)]">{r.brand}</p>
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0 text-sm text-[var(--color-text-muted)]">
-                    <span>3.5 ฟุต: {formatPrice(r.size_3_5_msrp)}</span>
-                    <span>5 ฟุต: {formatPrice(r.size_5_msrp)}</span>
-                    <span>6 ฟุต: {formatPrice(r.size_6_msrp)}</span>
+                  <div className="mt-1 flex flex-col gap-0.5 text-sm text-[var(--color-text-muted)]">
+                    <span>3.5 ฟุต: {formatPrice(r.size_3_5_msrp)}{r.size_3_5_msrp != null ? " บาท" : ""}</span>
+                    <span>5 ฟุต: {formatPrice(r.size_5_msrp)}{r.size_5_msrp != null ? " บาท" : ""}</span>
+                    <span>6 ฟุต: {formatPrice(r.size_6_msrp)}{r.size_6_msrp != null ? " บาท" : ""}</span>
                   </div>
-                  <p className="text-sm text-[var(--color-text-muted)]">ส่วนลด {r.discount_percent}%</p>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]" data-testid={`product-is-active-${r.id}`}>
+                    {r.is_active ? (
+                      <span className="text-[var(--color-success)]">เปิดใช้งาน</span>
+                    ) : (
+                      <span className="text-[var(--color-text-muted)]">ปิดใช้งาน</span>
+                    )}
+                  </p>
                 </>
               }
               right={
@@ -84,7 +105,7 @@ export function ProductListClient({ rows, emptyState }: ProductListClientProps) 
                   <button
                     type="button"
                     onClick={() => handleDelete(r.id)}
-                    className="flex min-h-[var(--touch-min)] min-w-[var(--touch-min)] items-center justify-center rounded-lg border border-[var(--color-error)]/50 text-[var(--color-error)] transition-colors hover:bg-[var(--color-error)]/10"
+                    className="flex min-h-[var(--touch-min)] min-w-[var(--touch-min)] cursor-pointer items-center justify-center rounded-lg border border-[var(--color-error)]/50 text-[var(--color-error)] transition-colors hover:bg-[var(--color-error)]/10"
                     data-testid={`product-delete-${r.id}`}
                     aria-label="ลบ"
                     title="ลบ"

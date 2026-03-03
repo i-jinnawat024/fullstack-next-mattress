@@ -1,13 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import type { Product } from "@/types/product";
+import type { Product, ProductActivePromotion } from "@/types/product";
 
 function formatPrice(n: number) {
+  if (typeof n !== "number" || Number.isNaN(n)) return "—";
   return new Intl.NumberFormat("th-TH").format(n);
 }
 
-/** การ์ดแคตตาล็อก: รูป (หรือ placeholder), ชื่อ, แบรนด์, แท็ก, ราคาโปรสรุป */
+function minValid(values: number[]): number | null {
+  const valid = values.filter((n) => typeof n === "number" && !Number.isNaN(n));
+  if (valid.length === 0) return null;
+  return Math.min(...valid);
+}
+
+function promoLabel(p: ProductActivePromotion): string {
+  if (p.discountType === "percent") return `ลด ${p.discountValue}%`;
+  return `ลด ${formatPrice(p.discountValue)} บาท`;
+}
+
+/** สีแท็กตามลำดับการลด (ลดมาก = สีแรก) */
+const TAG_COLORS = [
+  "bg-[var(--color-primary)]/15 text-[var(--color-primary)]",
+  "bg-[var(--color-success)]/15 text-[var(--color-success)]",
+  "bg-[var(--color-primary)]/20 text-[var(--color-primary)]",
+] as const;
+function tagColor(index: number): string {
+  return TAG_COLORS[index % TAG_COLORS.length];
+}
+
+/** เรียงโปรตามขนาดส่วนลด (มากไปน้อย) */
+function sortPromosByDiscount(promos: ProductActivePromotion[]): ProductActivePromotion[] {
+  return [...promos].sort((a, b) => b.discountValue - a.discountValue);
+}
+
+/** การ์ดแคตตาล็อก: รูป (หรือ placeholder), ชื่อ, แบรนด์, ราคาสุทธิ */
 export function CatalogCard({
   product,
   basePath = "",
@@ -16,33 +43,29 @@ export function CatalogCard({
   /** เช่น "/catalog" ให้ลิงก์ไป /catalog/[id] */
   basePath?: string;
 }) {
-  const hasActivePromo = (product.activePromotions?.length ?? 0) > 0;
-  const firstPromo = product.activePromotions?.[0];
-  const minNet =
-    product.prices.length > 0
-      ? Math.min(...product.prices.map((p) => p.netPrice))
-      : null;
+  // ราคาที่ถูกที่สุดจากทุกขนาด (3.5, 5, 6): มีส่วนลดใช้ netPrice ต่ำสุด ไม่มีใช้ msrp ต่ำสุด
+  const netPrices = product.prices.map((p) => p.netPrice);
+  const msrpPrices = product.prices.map((p) => p.msrp);
+  const minNet = minValid(netPrices);
+  const minMsrp = minValid(msrpPrices);
+  const displayPrice = minNet ?? minMsrp; // ใช้ราคาหลังหักส่วนลดถ้ามี ไม่ก็ราคาป้ายต่ำสุด
+  const hasPrices = displayPrice != null;
+  const hasDiscount = minNet != null && minMsrp != null && minNet < minMsrp;
+  const hasLinkedPromo = (product.activePromotions?.length ?? 0) > 0;
   const href = basePath ? `${basePath}/${product.id}` : `/${product.id}`;
 
   return (
     <Link
       href={href}
-      className={`block rounded-2xl overflow-hidden shadow-sm transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] ${
-        hasActivePromo
-          ? "border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5"
-          : "border border-[var(--color-border)] bg-[var(--color-surface)]"
+      className={`block overflow-hidden rounded-2xl bg-[var(--color-surface)] shadow-sm transition-shadow hover:shadow-md focus:outline-none ${
+        hasLinkedPromo ? "ring-2 ring-[var(--color-primary)]" : ""
       }`}
       data-testid={`catalog-link-${product.id}`}
     >
-      {hasActivePromo && (
-        <div className="bg-[var(--color-primary)] px-4 py-1.5 text-center">
-          <span className="text-xs font-semibold text-[var(--color-primary-foreground)]">
-            โปรโมชั่น
-            {firstPromo ? ` — ${firstPromo.name}` : ""}
-          </span>
-        </div>
-      )}
-      {/* รูปหรือ placeholder — aspect ratio คงที่เพื่อไม่ให้ layout กระโดด */}
+      <div
+        className="flex min-h-[3rem] items-center justify-center bg-[var(--color-primary)] px-4 py-3 text-center"
+        aria-hidden
+      />
       <div className="relative aspect-[4/3] w-full bg-[var(--color-surface-secondary)]">
         {product.imageUrl ? (
           <img
@@ -64,33 +87,40 @@ export function CatalogCard({
         <h2 className="font-semibold text-[var(--color-text)] line-clamp-2">
           {product.name}
         </h2>
-        <p className="text-sm text-[var(--color-text-muted)] mt-0.5">
+        <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
           {product.brand}
         </p>
-        {(product.freeGifts.length > 0 ||
-          product.promotionEndDate ||
-          hasActivePromo) && (
+        {hasLinkedPromo && (product.activePromotions?.length ?? 0) > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {product.freeGifts.length > 0 && (
-              <span className="rounded-full bg-[var(--color-success)]/12 px-2 py-0.5 text-xs text-[var(--color-success)]">
-                มีของแถม
+            {sortPromosByDiscount(product.activePromotions!).map((promo, i) => (
+              <span
+                key={promo.id}
+                className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${tagColor(i)}`}
+                data-testid={`catalog-promo-tag-${product.id}-${promo.id}`}
+              >
+                {promoLabel(promo)}
               </span>
-            )}
-            {(product.promotionEndDate || hasActivePromo) && (
-              <span className="rounded-full bg-[var(--color-primary)]/12 px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
-                {hasActivePromo && product.activePromotions!.length > 1
-                  ? `มี ${product.activePromotions!.length} โปร`
-                  : "มีโปร"}
-              </span>
-            )}
+            ))}
           </div>
         )}
       </div>
       <div className="px-4 pb-4">
-        {minNet != null ? (
-          <p className="text-[var(--color-price)] font-bold">
-            ราคาโปรจาก {formatPrice(minNet)} บาท
-          </p>
+        {hasPrices ? (
+          <div className="space-y-0.5">
+            <p className="text-xs font-medium text-[var(--color-text-muted)]">
+              ราคาที่ถูกที่สุด
+            </p>
+            <p className="flex flex-wrap items-baseline gap-2">
+              {hasDiscount && minMsrp != null && (
+                <span className="text-sm text-[var(--color-text-muted)] line-through">
+                  {formatPrice(minMsrp)} บาท
+                </span>
+              )}
+              <span className="text-[var(--color-price)] font-bold">
+                {formatPrice(displayPrice)} บาท
+              </span>
+            </p>
+          </div>
         ) : (
           <p className="text-sm text-[var(--color-text-muted)]">—</p>
         )}

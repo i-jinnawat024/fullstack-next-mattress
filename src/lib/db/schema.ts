@@ -14,16 +14,14 @@ export interface Database {
           size_3_5_msrp: number | null;
           size_5_msrp: number | null;
           size_6_msrp: number | null;
-          discount_percent: number;
-          promotion_end_date: string | null;
-          free_gifts: string | null;
-          credit_promo_text: string | null;
+          is_active: boolean;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["products"]["Row"], "id" | "created_at" | "updated_at"> & {
           id?: string;
+          is_active?: boolean;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;

@@ -42,6 +42,7 @@ export async function createProductAction(
     promotion_end_date: null,
     free_gifts: null,
     credit_promo_text: null,
+    is_active: formData.get("is_active") === "true",
   };
   const parsed = productInsertSchema.safeParse(raw);
   if (!parsed.success) {
@@ -85,6 +86,7 @@ export async function updateProductAction(
     promotion_end_date: null,
     free_gifts: null,
     credit_promo_text: null,
+    is_active: formData.get("is_active") === "true",
   };
   const parsed = productInsertSchema.safeParse(raw);
   if (!parsed.success) {

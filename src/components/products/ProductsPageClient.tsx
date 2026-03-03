@@ -17,14 +17,6 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "brand_desc", label: "แบรนด์ Z–A" },
   { value: "updated_at_desc", label: "อัปเดตล่าสุด" },
   { value: "updated_at_asc", label: "อัปเดตเก่าสุด" },
-  { value: "discount_desc", label: "ส่วนลด มาก–น้อย" },
-  { value: "discount_asc", label: "ส่วนลด น้อย–มาก" },
-];
-
-const HAS_DISCOUNT_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "ทั้งหมด" },
-  { value: "yes", label: "มีส่วนลด" },
-  { value: "no", label: "ไม่มีส่วนลด" },
 ];
 
 type Props = {
@@ -38,7 +30,6 @@ function filterAndSort(
     q: string;
     brand: string;
     sort: string;
-    hasDiscount: string;
   }
 ): ProductRow[] {
   let list = rows;
@@ -54,9 +45,6 @@ function filterAndSort(
   if (params.brand) {
     list = list.filter((r) => r.brand === params.brand);
   }
-
-  if (params.hasDiscount === "yes") list = list.filter((r) => (r.discount_percent ?? 0) > 0);
-  if (params.hasDiscount === "no") list = list.filter((r) => (r.discount_percent ?? 0) === 0);
 
   const [sortBy, sortDir] = params.sort.includes("_")
     ? params.sort.split("_")
@@ -74,9 +62,6 @@ function filterAndSort(
         cmp =
           new Date(a.updated_at ?? 0).getTime() -
           new Date(b.updated_at ?? 0).getTime();
-        break;
-      case "discount":
-        cmp = (a.discount_percent ?? 0) - (b.discount_percent ?? 0);
         break;
       default:
         cmp = (a.name ?? "").localeCompare(b.name ?? "", "th");
@@ -98,7 +83,6 @@ export function ProductsPageClient({ rows, brands }: Props) {
   const q = searchParams.get("q") ?? "";
   const brand = searchParams.get("brand") ?? "";
   const sort = searchParams.get("sort") ?? "name_asc";
-  const hasDiscount = searchParams.get("hasDiscount") ?? "";
 
   const updateUrl = useCallback(
     (updates: Record<string, string>) => {
@@ -122,12 +106,11 @@ export function ProductsPageClient({ rows, brands }: Props) {
         q,
         brand,
         sort,
-        hasDiscount,
       }),
-    [rows, q, brand, sort, hasDiscount]
+    [rows, q, brand, sort]
   );
 
-  const hasActiveFilters = q || brand || hasDiscount;
+  const hasActiveFilters = q || brand;
 
   return (
     <div className="space-y-4" data-testid="products-page-client">
@@ -214,19 +197,6 @@ export function ProductsPageClient({ rows, brands }: Props) {
               className="sm:hidden"
               aria-label="กรองตามแบรนด์"
               data-testid="products-filter-brand-mobile"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-[var(--color-text-muted)]">
-              ส่วนลด:
-            </span>
-            <Select
-              options={HAS_DISCOUNT_OPTIONS}
-              value={hasDiscount}
-              onChange={(v) => updateUrl({ hasDiscount: v })}
-              size="compact"
-              aria-label="กรองตามการมีส่วนลด"
-              data-testid="products-filter-has-discount"
             />
           </div>
           {hasActiveFilters && (

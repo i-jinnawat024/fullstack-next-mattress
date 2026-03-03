@@ -5,9 +5,8 @@
 import { unstable_cache } from "next/cache";
 import {
   getAllProducts,
-  getProductById,
-  getProductsForCatalog,
   getProductByIdWithActivePromotions,
+  getProductsForCatalog,
   searchProducts,
 } from "@/lib/data/products";
 import type { Product } from "@/types/product";
@@ -22,14 +21,15 @@ export function getCachedAllProducts(): Promise<Product[]> {
   })();
 }
 
-/** Catalog list with active promotions, sorted (มีโปรบนสุด). Invalidate when promotions or promotion_products change. */
+/** Catalog list. Invalidate when products change. */
 export function getCachedCatalogProducts(): Promise<Product[]> {
-  return unstable_cache(getProductsForCatalog, ["catalog", "list-with-promos"], {
+  return unstable_cache(getProductsForCatalog, ["catalog", "list"], {
     revalidate: REVALIDATE_SECONDS,
     tags: [CATALOG_TAG],
   })();
 }
 
+/** Product by id พร้อมโปรโมชั่นที่ผูกอยู่ (สำหรับหน้าแคตตาล็อก/ใบเสนอราคา) */
 export function getCachedProductById(id: string): Promise<Product | null> {
   return unstable_cache(
     () => getProductByIdWithActivePromotions(id),

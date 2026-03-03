@@ -16,9 +16,6 @@ export default async function CatalogPage() {
         >
           แคตตาล็อกสินค้า
         </h1>
-        <p className="text-[var(--text-body)] text-[var(--color-text-muted)] mt-1">
-          เปิดให้ลูกค้าดู ราคาจริง ส่วนลด และราคาโปร (สินค้ามีโปรแสดงบนสุด)
-        </p>
       </header>
 
       {products.length === 0 ? (

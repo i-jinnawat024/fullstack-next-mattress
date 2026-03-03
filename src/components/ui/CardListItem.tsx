@@ -16,7 +16,7 @@ export type CardListItemProps = {
 };
 
 const leftSlotClass =
-  "h-28 w-full shrink-0 sm:h-auto sm:w-28 sm:min-h-[100px]";
+  "h-36 w-full shrink-0 sm:h-auto sm:w-36 sm:min-h-[120px]";
 const centerSlotClass =
   "flex min-w-0 flex-1 flex-col justify-center gap-1 p-4 sm:gap-0.5";
 const rightSlotClass =

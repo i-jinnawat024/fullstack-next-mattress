@@ -11,7 +11,7 @@ export interface PriceBySize {
   netPrice: number;
 }
 
-/** Active promotion from promotions table (for catalog display & price) */
+/** โปรโมชั่นที่ผูกกับสินค้า (จาก promotion_products) */
 export interface ProductActivePromotion {
   id: string;
   name: string;
@@ -26,10 +26,7 @@ export interface Product {
   brand: string;
   imageUrl: string | null;
   prices: PriceBySize[];
-  promotionEndDate: string | null;
-  freeGifts: string[];
-  creditPromoText: string | null;
-  /** Promotions (from promotions table) that are active and linked to this product */
+  /** โปรโมชั่นที่เชื่อมกับสินค้านี้ (จากแคมเปญ) */
   activePromotions?: ProductActivePromotion[];
 }
 
@@ -41,10 +38,6 @@ export interface ProductRow {
   size_3_5_msrp: number | null;
   size_5_msrp: number | null;
   size_6_msrp: number | null;
-  discount_percent: number;
-  promotion_end_date: string | null;
-  free_gifts: string | null;
-  credit_promo_text: string | null;
   created_at?: string;
   updated_at?: string;
 }
