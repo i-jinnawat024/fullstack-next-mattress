@@ -81,6 +81,7 @@ export function PromotionForm({ action, id, products = [], initial }: PromotionF
 
   useEffect(() => {
     if (state?.success) {
+      router.refresh();
       router.replace("/promotion");
     }
   }, [state?.success, router]);

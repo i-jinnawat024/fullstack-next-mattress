@@ -76,6 +76,7 @@ export function ProductForm({ action, brands, id, initial }: ProductFormProps) {
   useEffect(() => {
     if (!state?.success) return;
     toast.success(initial ? "บันทึกแล้ว" : "เพิ่มสินค้าแล้ว");
+    router.refresh();
     router.push("/products");
   }, [state?.success, initial, router]);
 

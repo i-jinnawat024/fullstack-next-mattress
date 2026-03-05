@@ -11,9 +11,10 @@ import { promotionInsertSchema } from "@/lib/validation/promotion";
 import type { Database } from "@/lib/db/schema";
 import { CATALOG_TAG } from "@/lib/cache/catalog";
 
-/** ล้าง cache แคตตาล็อกหลังแก้ไขโปร — tag + path เพื่อให้หน้า catalog อัปเดตทันที */
+/** ล้าง cache หลังแก้ไขโปร — ให้ทุกหน้าที่เกี่ยวข้อง fetch ข้อมูลใหม่ */
 function revalidateCatalog() {
   revalidateTag(CATALOG_TAG, "max");
+  revalidatePath("/promotion");
   revalidatePath("/catalog");
   revalidatePath("/");
 }

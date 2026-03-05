@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 import {
   createProduct,
   updateProduct,
@@ -11,8 +11,12 @@ import {
 import { CATALOG_TAG } from "@/lib/cache/catalog";
 import { productInsertSchema } from "@/lib/validation/product";
 
-function revalidateCatalog() {
+/** ล้าง cache หลังแก้ไขสินค้า — ให้ทุกหน้าที่เกี่ยวข้อง fetch ข้อมูลใหม่ */
+function revalidateProductAndCatalog() {
   revalidateTag(CATALOG_TAG, "max");
+  revalidatePath("/products");
+  revalidatePath("/catalog");
+  revalidatePath("/");
 }
 
 export type ProductFormState = {
@@ -46,7 +50,7 @@ export async function createProductAction(
   }
   try {
     await createProduct(parsed.data as Parameters<typeof createProduct>[0]);
-    revalidateCatalog();
+    revalidateProductAndCatalog();
     redirect("/products");
   } catch (e) {
     const err = e as { code?: string; message?: string };
@@ -90,7 +94,7 @@ export async function updateProductAction(
   }
   try {
     await updateProduct(id, parsed.data as Parameters<typeof updateProduct>[1]);
-    revalidateCatalog();
+    revalidateProductAndCatalog();
     return { success: true };
   } catch (e) {
     const err = e as { code?: string };
@@ -114,7 +118,7 @@ export async function updateProductFormAction(
 export async function softDeleteProductAction(id: string): Promise<{ error?: string }> {
   try {
     await softDeleteProduct(id);
-    revalidateCatalog();
+    revalidateProductAndCatalog();
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "เกิดข้อผิดพลาด" };
@@ -124,7 +128,7 @@ export async function softDeleteProductAction(id: string): Promise<{ error?: str
 export async function restoreProductAction(id: string): Promise<{ error?: string }> {
   try {
     await restoreProduct(id);
-    revalidateCatalog();
+    revalidateProductAndCatalog();
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : "เกิดข้อผิดพลาด" };
